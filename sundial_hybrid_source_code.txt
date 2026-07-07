@@ -1,0 +1,1490 @@
+﻿
+
+=== FILE: \src\app\history\history-routing.module.ts ===
+
+import { NgModule } from '@angular/core';
+import { Routes, RouterModule } from '@angular/router';
+
+import { HistoryPage } from './history.page';
+
+const routes: Routes = [
+  {
+    path: '',
+    component: HistoryPage
+  }
+];
+
+@NgModule({
+  imports: [RouterModule.forChild(routes)],
+  exports: [RouterModule],
+})
+export class HistoryPageRoutingModule {}
+
+
+
+=== FILE: \src\app\history\history.module.ts ===
+
+import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+
+import { IonicModule } from '@ionic/angular';
+
+import { HistoryPageRoutingModule } from './history-routing.module';
+
+import { HistoryPage } from './history.page';
+
+@NgModule({
+  imports: [
+    CommonModule,
+    FormsModule,
+    IonicModule,
+    HistoryPageRoutingModule,
+    HistoryPage
+  ],
+  declarations: []
+})
+export class HistoryPageModule {}
+
+
+
+
+=== FILE: \src\app\history\history.page.html ===
+
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/home"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Tracking History</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <div class="history-header ion-text-center" style="margin-bottom: 20px;">
+    <h2 style="color: white; font-weight: bold; margin-bottom: 5px;">Saved Solar Positions</h2>
+    <p style="color: #f4f5f8;">Review your saved panel alignments grouped by month.</p>
+  </div>
+
+  <!-- Empty state view -->
+  <div *ngIf="groupedSections.length === 0" class="ion-text-center" style="margin-top: 50px; color: white;">
+    <ion-icon name="file-tray-outline" style="font-size: 4rem; opacity: 0.6;"></ion-icon>
+    <p style="font-weight: 500; margin-top: 10px;">No tracking logs recorded yet.</p>
+  </div>
+
+  <!-- Grouped Lists Iterator -->
+  <div *ngFor="let section of groupedSections; let sIndex = index" style="margin-bottom: 25px;">
+    
+    <!-- Dynamic Month Section Title Card Header -->
+    <div class="month-title-header">
+      {{ section.monthName }}
+    </div>
+
+    <ion-list inset="true" style="border-radius: 12px; overflow: hidden; margin-top: 5px;">
+      <ion-item-sliding *ngFor="let log of section.logs; let lIndex = index">
+        
+        <ion-item>
+          <ion-icon name="sunny" slot="start" color="warning"></ion-icon>
+          <ion-label>
+            <h2 style="font-weight: bold; color: #333;">{{ log.date }}</h2>
+            <p style="color: #666;">
+              Pitch: <strong>{{ log.pitch }}Â°</strong> | Roll: <strong>{{ log.roll }}Â°</strong>
+            </p>
+            <p *ngIf="log.azimuth" style="color: #3880ff; font-size: 0.85rem; margin-top: 2px;">
+              Azim: {{ log.azimuth }}Â° | Elev: {{ log.elevation }}Â°
+            </p>
+          </ion-label>
+        </ion-item>
+
+        <ion-item-options side="end">
+          <ion-item-option color="danger" (click)="deleteLog(sIndex, lIndex)">
+            <ion-icon name="trash" slot="icon-only"></ion-icon>
+          </ion-item-option>
+        </ion-item-options>
+
+      </ion-item-sliding>
+    </ion-list>
+
+  </div>
+</ion-content>
+
+
+
+=== FILE: \src\app\history\history.page.scss ===
+
+.month-title-header {
+  color: #ffffff;
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding-left: 14px;
+  text-transform: uppercase;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+
+
+=== FILE: \src\app\history\history.page.spec.ts ===
+
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HistoryPage } from './history.page';
+
+describe('HistoryPage', () => {
+  let component: HistoryPage;
+  let fixture: ComponentFixture<HistoryPage>;
+
+  beforeEach(() => {
+    fixture = TestBed.createComponent(HistoryPage);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+});
+
+
+
+=== FILE: \src\app\history\history.page.ts ===
+
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { IonicModule } from '@ionic/angular';
+
+interface GroupedHistory {
+  monthName: string;
+  logs: any[];
+}
+
+@Component({
+  selector: 'app-history',
+  templateUrl: './history.page.html',
+  styleUrls: ['./history.page.scss'],
+  standalone: true,
+  imports: [CommonModule, IonicModule]
+})
+export class HistoryPage implements OnInit {
+  public groupedSections: GroupedHistory[] = [];
+
+  ngOnInit() {
+    this.loadAndGroupHistory();
+  }
+
+  ionViewWillEnter() {
+    this.loadAndGroupHistory();
+  }
+
+  loadAndGroupHistory() {
+    const data = localStorage.getItem('sundial_logs');
+    if (!data) {
+      this.groupedSections = [];
+      return;
+    }
+
+    try {
+      const rawLogs = JSON.parse(data);
+      const groups: { [key: string]: any[] } = {};
+
+  
+      rawLogs.forEach((log: any) => {
+        if (log && log.date) {
+
+          const dateObj = new Date(log.date.replace(' (Tracked)', ''));
+          const monthYearLabel = dateObj.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+          if (!groups[monthYearLabel]) {
+            groups[monthYearLabel] = [];
+          }
+          groups[monthYearLabel].push(log);
+        }
+      });
+
+     
+      this.groupedSections = Object.keys(groups).map(key => ({
+        monthName: key,
+        // Reverse individual items so newest records display first
+        logs: groups[key].reverse()
+      })).reverse();
+
+    } catch (e) {
+      console.error('Error parsing history tracking arrays', e);
+      this.groupedSections = [];
+    }
+  }
+
+  deleteLog(sectionIndex: number, logIndex: number) {
+    const targetItem = this.groupedSections[sectionIndex].logs[logIndex];
+    const data = localStorage.getItem('sundial_logs');
+    
+    if (data) {
+      let logs = JSON.parse(data);
+      // Find exact item match inside original master array and remove it
+      const matchIndex = logs.findIndex((l: any) => l.date === targetItem.date);
+      if (matchIndex !== -1) {
+        logs.splice(matchIndex, 1);
+        localStorage.setItem('sundial_logs', JSON.stringify(logs));
+        this.loadAndGroupHistory(); // Refresh view
+      }
+    }
+  }
+}
+
+
+
+
+=== FILE: \src\app\home\home-routing.module.ts ===
+
+import { NgModule } from '@angular/core';
+import { RouterModule, Routes } from '@angular/router';
+import { HomePage } from './home.page';
+
+const routes: Routes = [
+  {
+    path: '',
+    component: HomePage,
+  }
+];
+
+@NgModule({
+  imports: [RouterModule.forChild(routes)],
+  exports: [RouterModule]
+})
+export class HomePageRoutingModule {}
+
+
+
+=== FILE: \src\app\home\home.module.ts ===
+
+import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { IonicModule } from '@ionic/angular';
+import { FormsModule } from '@angular/forms';
+import { HomePage } from './home.page';
+import { HomePageRoutingModule } from './home-routing.module';
+
+@NgModule({
+  imports: [
+    CommonModule,
+    FormsModule,
+    IonicModule,
+    HomePageRoutingModule,
+    HomePage
+  ],
+  declarations: []
+})
+export class HomePageModule {}
+
+
+
+=== FILE: \src\app\home\home.page.html ===
+
+<ion-content class="ion-padding menu-bg">
+  <div class="menu-container">
+    
+    <!-- Top Center Title Button -->
+    <div class="title-wrapper">
+      <ion-button color="light" class="sundial-title-btn" fill="clear">
+        <h1>SUNDIAL</h1>
+      </ion-button>
+    </div>
+
+    <!-- App Logo Segment -->
+    <div class="logo-wrapper">
+      <div class="solar-logo">
+        <div class="sun-core"></div>
+        <div class="ray"></div>
+      </div>
+    </div>
+
+    <!-- Vertically Ordered Navigation Stack -->
+    <div class="button-stack">
+      <ion-button expand="block" routerLink="/track" color="primary" class="menu-btn">
+        <ion-icon name="locate-outline" slot="start"></ion-icon> Track
+      </ion-button>
+      
+      <ion-button expand="block" routerLink="/settings" color="primary" class="menu-btn">
+        <ion-icon name="settings-outline" slot="start"></ion-icon> Settings
+      </ion-button>
+      
+      <ion-button expand="block" routerLink="/storage" color="primary" class="menu-btn">
+        <ion-icon name="cube-outline" slot="start"></ion-icon> Storage
+      </ion-button>
+      
+      <ion-button expand="block" routerLink="/history" color="primary" class="menu-btn">
+        <ion-icon name="time-outline" slot="start"></ion-icon> History
+      </ion-button>
+    </div>
+
+  </div>
+</ion-content>
+
+
+
+=== FILE: \src\app\home\home.page.scss ===
+
+.menu-bg {
+  
+}
+
+.menu-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-around;
+  height: 100%;
+  padding: 20px 0;
+}
+
+.title-wrapper {
+  margin-top: 10px;
+  .sundial-title-btn h1 {
+    font-weight: 900;
+    font-size: 2.5rem;
+    letter-spacing: 4px;
+    color: #3880ff;
+    margin: 0;
+  }
+}
+
+.logo-wrapper {
+  margin: 20px 0;
+  .solar-logo {
+    width: 100px;
+    height: 100px;
+    background: #ffc409;
+    border-radius: 50%;
+    box-shadow: 0 0 20px #ffc409;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.button-stack {
+  width: 85%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  
+  .menu-btn {
+    --border-radius: 10px;
+    height: 50px;
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+}
+
+
+=== FILE: \src\app\home\home.page.spec.ts ===
+
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { IonicModule } from '@ionic/angular';
+
+import { HomePage } from './home.page';
+
+describe('HomePage', () => {
+  let component: HomePage;
+  let fixture: ComponentFixture<HomePage>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      declarations: [HomePage],
+      imports: [IonicModule.forRoot()]
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(HomePage);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+});
+
+
+
+=== FILE: \src\app\home\home.page.ts ===
+
+import { Component } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { IonicModule } from '@ionic/angular';
+import { RouterModule } from '@angular/router';
+
+@Component({
+  selector: 'app-home',
+  templateUrl: 'home.page.html',
+  styleUrls: ['home.page.scss'],
+  standalone: true,
+  imports: [CommonModule, IonicModule, RouterModule]
+})
+export class HomePage {
+  constructor() {}
+}
+
+
+=== FILE: \src\app\privacy\privacy-routing.module.ts ===
+
+import { NgModule } from '@angular/core';
+import { Routes, RouterModule } from '@angular/router';
+
+import { PrivacyPage } from './privacy.page';
+
+const routes: Routes = [
+  {
+    path: '',
+    component: PrivacyPage
+  }
+];
+
+@NgModule({
+  imports: [RouterModule.forChild(routes)],
+  exports: [RouterModule],
+})
+export class PrivacyPageRoutingModule {}
+
+
+
+=== FILE: \src\app\privacy\privacy.module.ts ===
+
+import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { IonicModule } from '@ionic/angular';
+import { PrivacyPageRoutingModule } from './privacy-routing.module';
+import { PrivacyPage } from './privacy.page';
+
+@NgModule({
+  imports: [
+    CommonModule,
+    FormsModule,
+    IonicModule,
+    PrivacyPageRoutingModule,
+    PrivacyPageModule
+  ],
+  declarations: []
+})
+export class PrivacyPageModule {}
+
+
+
+
+=== FILE: \src\app\privacy\privacy.page.html ===
+
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/settings"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Privacy Policy</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <div class="privacy-container" style="color: white; padding: 10px;">
+    <h2 style="font-weight: bold; margin-bottom: 20px;">Your Data Privacy</h2>
+    
+    <p style="line-height: 1.5; font-size: 1.05rem; margin-bottom: 20px;">
+      <strong>Sundial Hybrid</strong> is built with absolute privacy in mind. We believe that your geographical movements and solar data belongs entirely to you.
+    </p>
+
+    <ion-card style="--background: #ffffff; color: #333; border-radius: 12px; margin: 0 0 20px 0;">
+      <ion-card-content>
+        <h3 style="font-weight: bold; color: #3880ff; margin-top: 0;">1. Location Data (GPS)</h3>
+        <p>This app accesses your phone's GPS coordinates strictly to pinpoint the sun. This data is processed live on your device and is never sent to external servers.</p>
+      </ion-card-content>
+    </ion-card>
+
+    <ion-card style="--background: #ffffff; color: #333; border-radius: 12px; margin: 0 0 20px 0;">
+      <ion-card-content>
+        <h3 style="font-weight: bold; color: #3880ff; margin-top: 0;">2. 100% Local Storage</h3>
+        <p>Your 30-day solar history logs are saved exclusively within your phone's internal memory via sandboxed local storage rules. No third parties have visibility into your data logs.</p>
+      </ion-card-content>
+    </ion-card>
+
+    <ion-card style="--background: #ffffff; color: #333; border-radius: 12px; margin: 0 0 20px 0;">
+      <ion-card-content>
+        <h3 style="font-weight: bold; color: #3880ff; margin-top: 0;">3. Total Control</h3>
+        <p>You have full ownership of your tracking telemetry. You can immediately wipe out every entry or delete the database completely at any time using the Purge tool in your Settings.</p>
+      </ion-card-content>
+    </ion-card>
+  </div>
+</ion-content>
+
+
+
+
+=== FILE: \src\app\privacy\privacy.page.scss ===
+
+
+
+=== FILE: \src\app\privacy\privacy.page.spec.ts ===
+
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { PrivacyPage } from './privacy.page';
+
+describe('PrivacyPage', () => {
+  let component: PrivacyPage;
+  let fixture: ComponentFixture<PrivacyPage>;
+
+  beforeEach(() => {
+    fixture = TestBed.createComponent(PrivacyPage);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+});
+
+
+
+=== FILE: \src\app\privacy\privacy.page.ts ===
+
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { IonicModule } from '@ionic/angular';
+
+@Component({
+  selector: 'app-privacy',
+  templateUrl: './privacy.page.html',
+  styleUrls: ['./privacy.page.scss'],
+  standalone: true,
+  imports: [CommonModule, IonicModule]
+})
+export class PrivacyPage implements OnInit {
+  constructor() { }
+  ngOnInit() { }
+}
+
+
+
+
+=== FILE: \src\app\settings\settings-routing.module.ts ===
+
+import { NgModule } from '@angular/core';
+import { Routes, RouterModule } from '@angular/router';
+
+import { SettingsPage } from './settings.page';
+
+const routes: Routes = [
+  {
+    path: '',
+    component: SettingsPage
+  }
+];
+
+@NgModule({
+  imports: [RouterModule.forChild(routes)],
+  exports: [RouterModule],
+})
+export class SettingsPageRoutingModule {}
+
+
+
+=== FILE: \src\app\settings\settings.module.ts ===
+
+import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+
+import { IonicModule } from '@ionic/angular';
+
+import { SettingsPageRoutingModule } from './settings-routing.module';
+
+import { SettingsPage } from './settings.page';
+
+@NgModule({
+  imports: [
+    CommonModule,
+    FormsModule,
+    IonicModule,
+    SettingsPageRoutingModule,
+    SettingsPage
+  ],
+  declarations: []
+})
+export class SettingsPageModule {}
+
+
+
+=== FILE: \src\app\settings\settings.page.html ===
+
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/home"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Settings</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  
+  <!-- GPS Configuration List Group -->
+  <ion-list-header><ion-label style="color: white; font-weight: bold;">GPS Location Access</ion-label></ion-list-header>
+  <ion-list inset="true">
+    <ion-item>
+      <ion-label>GPS Always On?</ion-label>
+      <ion-toggle slot="end" [(ngModel)]="gpsAlwaysOn" (ionChange)="toggleGpsSetting('always')"></ion-toggle>
+    </ion-item>
+    <ion-item>
+      <ion-label>GPS Only When Using?</ion-label>
+      <ion-toggle slot="end" [(ngModel)]="gpsOnlyWhenUsing" (ionChange)="toggleGpsSetting('using')"></ion-toggle>
+    </ion-item>
+  </ion-list>
+
+  <!-- Storage System Group -->
+  <ion-list-header><ion-label style="color: white; font-weight: bold;">Storage Location Options</ion-label></ion-list-header>
+  <ion-list inset="true">
+    <ion-item>
+      <ion-label>Local Storage?</ion-label>
+      <ion-toggle slot="end" [(ngModel)]="localStorageActive" (ionChange)="saveSettings()"></ion-toggle>
+    </ion-item>
+    <ion-item>
+      <ion-label>Cloud Storage?</ion-label>
+      <ion-toggle slot="end" [(ngModel)]="cloudStorageActive" (ionChange)="saveSettings()"></ion-toggle>
+    </ion-item>
+  </ion-list>
+
+  <!-- Log Retention Configurations -->
+  <ion-list-header><ion-label style="color: white; font-weight: bold;">Data History Management</ion-label></ion-list-header>
+  <ion-list inset="true">
+    <ion-item>
+      <ion-label>Allow Keep History?</ion-label>
+      <ion-toggle slot="end" [(ngModel)]="allowKeepHistory" (ionChange)="saveSettings()"></ion-toggle>
+    </ion-item>
+    
+    <ion-item [disabled]="!allowKeepHistory">
+      <ion-label># Days to Keep History</ion-label>
+      <ion-input slot="end" type="number" min="1" max="30" placeholder="30"
+                 [(ngModel)]="historyDaysLimit" (ionInput)="saveSettings()" style="text-align: right; font-weight: bold;">
+      </ion-input>
+    </ion-item>
+  </ion-list>
+
+  <!-- Legal & Security Group -->
+  <ion-list-header><ion-label style="color: white; font-weight: bold;">Legal & Security</ion-label></ion-list-header>
+  <ion-list inset="true">
+    <ion-item button routerLink="/privacy" detail="true">
+      <ion-icon name="shield-checkmark-outline" slot="start" color="primary"></ion-icon>
+      <ion-label>Privacy Policy</ion-label>
+    </ion-item>
+  </ion-list>
+  
+  <!-- Action Purge Button -->
+  <div style="margin-top: 25px; padding: 0 10px;">
+    <ion-button expand="block" color="danger" (click)="purgeHistory()">
+      <ion-icon name="trash-outline" slot="start"></ion-icon>
+      Purge History
+    </ion-button>
+  </div>
+
+</ion-content>
+
+
+
+
+=== FILE: \src\app\settings\settings.page.scss ===
+
+
+
+=== FILE: \src\app\settings\settings.page.spec.ts ===
+
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { SettingsPage } from './settings.page';
+
+describe('SettingsPage', () => {
+  let component: SettingsPage;
+  let fixture: ComponentFixture<SettingsPage>;
+
+  beforeEach(() => {
+    fixture = TestBed.createComponent(SettingsPage);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+});
+
+
+
+=== FILE: \src\app\settings\settings.page.ts ===
+
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { IonicModule } from '@ionic/angular';
+import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
+
+@Component({
+  selector: 'app-settings',
+  templateUrl: './settings.page.html',
+  styleUrls: ['./settings.page.scss'],
+  standalone: true,
+  imports: [CommonModule, IonicModule, FormsModule, RouterModule]
+})
+export class SettingsPage implements OnInit {
+  // Configuration States & Default Values
+  public gpsAlwaysOn: boolean = false;
+  public gpsOnlyWhenUsing: boolean = true;
+  public localStorageActive: boolean = true;
+  public cloudStorageActive: boolean = false;
+  public allowKeepHistory: boolean = true;
+  public historyDaysLimit: number = 30;
+
+  ngOnInit() {
+    this.loadSettings();
+  }
+
+  // Handle Radio Toggle exclusivity for GPS settings
+  toggleGpsSetting(type: string) {
+    if (type === 'always' && this.gpsAlwaysOn) {
+      this.gpsOnlyWhenUsing = false;
+    } else if (type === 'using' && this.gpsOnlyWhenUsing) {
+      this.gpsAlwaysOn = false;
+    }
+    this.saveSettings();
+  }
+
+  // Save Configs to LocalStorage
+  saveSettings() {
+    const configData = {
+      gpsAlwaysOn: this.gpsAlwaysOn,
+      gpsOnlyWhenUsing: this.gpsOnlyWhenUsing,
+      localStorageActive: this.localStorageActive,
+      cloudStorageActive: this.cloudStorageActive,
+      allowKeepHistory: this.allowKeepHistory,
+      historyDaysLimit: this.historyDaysLimit
+    };
+    localStorage.setItem('sundial_settings', JSON.stringify(configData));
+  }
+
+  loadSettings() {
+    const saved = localStorage.getItem('sundial_settings');
+    if (saved) {
+      const data = JSON.parse(saved);
+      this.gpsAlwaysOn = data.gpsAlwaysOn;
+      this.gpsOnlyWhenUsing = data.gpsOnlyWhenUsing;
+      this.localStorageActive = data.localStorageActive;
+      this.cloudStorageActive = data.cloudStorageActive;
+      this.allowKeepHistory = data.allowKeepHistory;
+      this.historyDaysLimit = data.historyDaysLimit;
+    }
+  }
+
+  // Purge Tracking History Button Action
+  purgeHistory() {
+    localStorage.removeItem('sundial_logs');
+    alert('Tracking history logs have been completely purged.');
+  }
+}
+
+
+
+
+=== FILE: \src\app\storage\storage-routing.module.ts ===
+
+import { NgModule } from '@angular/core';
+import { Routes, RouterModule } from '@angular/router';
+
+import { StoragePage } from './storage.page';
+
+const routes: Routes = [
+  {
+    path: '',
+    component: StoragePage
+  }
+];
+
+@NgModule({
+  imports: [RouterModule.forChild(routes)],
+  exports: [RouterModule],
+})
+export class StoragePageRoutingModule {}
+
+
+
+=== FILE: \src\app\storage\storage.module.ts ===
+
+import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { IonicModule } from '@ionic/angular';
+import { StoragePageRoutingModule } from './storage-routing.module';
+import { StoragePage } from './storage.page';
+
+@NgModule({
+  imports: [
+    CommonModule,
+    FormsModule,
+    IonicModule,
+    StoragePageRoutingModule,
+    StoragePage 
+  ],
+  declarations: [] 
+})
+export class StoragePageModule {}
+
+
+
+=== FILE: \src\app\storage\storage.page.html ===
+
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/home"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Storage Configuration</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding ion-text-center">
+  <div class="storage-intro">
+    <h2 style="color: white; font-weight: bold; margin-bottom: 5px;">Select Tracking Log Date</h2>
+    <p style="color: #f4f5f8; margin-bottom: 20px;">Pick a date within your 30-day window to start tracking.</p>
+  </div>
+
+  <!-- Native Inline Visual Calendar Widget -->
+  <div class="calendar-card">
+    <ion-datetime 
+      presentation="date" 
+      size="cover"
+      [min]="minDate" 
+      [max]="maxDate"
+      [value]="selectedDate"
+      (ionChange)="onDateSelected($event)">
+    </ion-datetime>
+  </div>
+</ion-content>
+
+
+
+=== FILE: \src\app\storage\storage.page.scss ===
+
+.calendar-card {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  margin: 10px auto;
+  max-width: 350px;
+}
+
+
+ion-datetime {
+  --background: #ffffff;
+  --background-activated: #00b0f0;
+  border-radius: 16px;
+}
+
+
+
+=== FILE: \src\app\storage\storage.page.spec.ts ===
+
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { StoragePage } from './storage.page';
+
+describe('StoragePage', () => {
+  let component: StoragePage;
+  let fixture: ComponentFixture<StoragePage>;
+
+  beforeEach(() => {
+    fixture = TestBed.createComponent(StoragePage);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+});
+
+
+
+=== FILE: \src\app\storage\storage.page.ts ===
+
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { IonicModule } from '@ionic/angular';
+import { Router } from '@angular/router';
+
+@Component({
+  selector: 'app-storage',
+  templateUrl: './storage.page.html',
+  styleUrls: ['./storage.page.scss'],
+  standalone: true,
+  imports: [CommonModule, IonicModule]
+})
+export class StoragePage implements OnInit {
+  public selectedDate: string = '';
+  public minDate: string = '';
+  public maxDate: string = '';
+
+  constructor(private router: Router) {}
+
+  ngOnInit() {
+    this.calculate30DayWindow();
+  }
+
+
+  calculate30DayWindow() {
+    const today = new Date();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+
+    
+    this.maxDate = today.toISOString().split('T')[0];
+    this.minDate = thirtyDaysAgo.toISOString().split('T')[0];
+    this.selectedDate = this.maxDate; // Default selection to today
+  }
+
+
+  onDateSelected(event: any) {
+    const dateValue = event.detail.value;
+    if (dateValue) {
+
+      const parsedDate = new Date(dateValue).toLocaleDateString();      
+
+      localStorage.setItem('sundial_active_target_date', parsedDate);
+
+      this.router.navigate(['/track']);
+    }
+  }
+}
+
+
+
+
+=== FILE: \src\app\track\track-routing.module.ts ===
+
+import { NgModule } from '@angular/core';
+import { Routes, RouterModule } from '@angular/router';
+
+import { TrackPage } from './track.page';
+
+const routes: Routes = [
+  {
+    path: '',
+    component: TrackPage
+  }
+];
+
+@NgModule({
+  imports: [RouterModule.forChild(routes)],
+  exports: [RouterModule],
+})
+export class TrackPageRoutingModule {}
+
+
+
+=== FILE: \src\app\track\track.module.ts ===
+
+import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+
+import { IonicModule } from '@ionic/angular';
+
+import { TrackPageRoutingModule } from './track-routing.module';
+
+import { TrackPage } from './track.page';
+
+@NgModule({
+  imports: [
+    CommonModule,
+    FormsModule,
+    IonicModule,
+    TrackPageRoutingModule,
+    TrackPage
+  ],
+  declarations: []
+})
+export class TrackPageModule {}
+
+
+
+=== FILE: \src\app\track\track.page.html ===
+
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/home"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Live Solar Alignment</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding ion-text-center">
+  <div class="header-info">
+    <h2 style="color: white; font-weight: bold; margin-bottom: 2px;">Perpendicular Target Lock</h2>
+    <p style="color: #f4f5f8; font-size: 0.95rem; margin-bottom: 15px;">
+      Adjust solar panel angles until the bubble matches the sun vector.
+    </p>
+  </div>
+
+
+  <div class="level-container">
+    <div class="target-center"></div>
+    <div class="bubble" 
+         [class.aligned]="isAligned"
+         [ngStyle]="{'transform': 'translate(' + (bubbleX * 2.5) + 'px, ' + (bubbleY * 2.5) + 'px)'}">
+    </div>
+  </div>
+
+  <ion-card style="border-radius: 12px; margin-bottom: 20px;">
+    <ion-card-content>
+      <ion-grid>
+        <ion-row>
+          <ion-col size="6" style="border-r: 1px solid #ddd;">
+            <p style="color: #666; margin: 0; font-size: 0.85rem; font-weight: bold;">SUN POSITION</p>
+            <h2 style="color: #3880ff; font-weight: 800; margin: 5px 0;">{{ sunElevation }}Â° <span style="font-size: 0.9rem; font-weight: normal; color: #444;">Elev</span></h2>
+            <h2 style="color: #3880ff; font-weight: 800; margin: 0;">{{ sunAzimuth }}Â° <span style="font-size: 0.9rem; font-weight: normal; color: #444;">Azim</span></h2>
+          </ion-col>
+          <ion-col size="6">
+            <p style="color: #666; margin: 0; font-size: 0.85rem; font-weight: bold;">PANEL TILT</p>
+            <h2 style="color: #222; font-weight: 700; margin: 5px 0;">P: {{ pitch }}Â°</h2>
+            <h2 style="color: #222; font-weight: 700; margin: 0;">R: {{ roll }}Â°</h2>
+          </ion-col>
+        </ion-row>
+      </ion-grid>
+              
+      <div *ngIf="isAligned" class="success-banner">
+        <ion-icon name="checkmark-circle" style="vertical-align: middle; margin-right: 5px;"></ion-icon>
+        PERPENDICULAR LOCK ACHIEVED
+      </div>
+
+    </ion-card-content>
+  </ion-card>
+
+  <ion-button expand="block" (click)="saveLog()" color="secondary" style="--border-radius: 10px; height: 48px; font-weight: bold;">
+    <ion-icon name="save-outline" slot="start"></ion-icon> Save Target Alignment
+  </ion-button>
+</ion-content>
+
+
+
+
+=== FILE: \src\app\track\track.page.scss ===
+
+.level-container {
+  width: 200px;
+  height: 200px;
+  border: 4px solid #ffffff;
+  border-radius: 50%;
+  margin: 15px auto;
+  position: relative;
+  background: rgba(255, 255, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 4px 10px rgba(0,0,0,0.15);
+}
+
+.target-center {
+  width: 30px;
+  height: 30px;
+  border: 2px dashed #ffffff;
+  border-radius: 50%;
+  position: absolute;
+}
+
+.bubble {
+  width: 32px;
+  height: 32px;
+  background: #ffc409;
+  border-radius: 50%;
+  position: absolute;
+  transition: transform 0.05s ease-out;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+
+  &.aligned {
+    background: #2dd36f !important;
+    box-shadow: 0 0 15px #2dd36f;
+  }
+}
+
+.success-banner {
+  background: #2dd36f;
+  color: white;
+  padding: 8px;
+  border-radius: 6px;
+  font-weight: bold;
+  font-size: 0.9rem;
+  margin-top: 15px;
+  letter-spacing: 0.5px;
+}
+
+
+
+=== FILE: \src\app\track\track.page.spec.ts ===
+
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { TrackPage } from './track.page';
+
+describe('TrackPage', () => {
+  let component: TrackPage;
+  let fixture: ComponentFixture<TrackPage>;
+
+  beforeEach(() => {
+    fixture = TestBed.createComponent(TrackPage);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+});
+
+
+
+=== FILE: \src\app\track\track.page.ts ===
+
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { IonicModule } from '@ionic/angular';
+import { Geolocation } from '@capacitor/geolocation';
+import { Motion } from '@capacitor/motion';
+
+@Component({
+  selector: 'app-track',
+  templateUrl: './track.page.html',
+  styleUrls: ['./track.page.scss'],
+  standalone: true,
+  imports: [CommonModule, IonicModule]
+})
+export class TrackPage implements OnInit {
+  // Live Phone States
+  public pitch: number = 0;
+  public roll: number = 0;
+  public heading: number = 0;
+
+  // Calculated Target Sun Position
+  public sunElevation: number = 0; // Altitude angle above horizon
+  public sunAzimuth: number = 0;   // Compass heading of the sun
+
+  // Calculated Targets for Phone
+  public targetPitch: number = 0;
+  public targetRoll: number = 0;
+
+  // Visual Offsets for the Bubble Circle
+  public bubbleX: number = 0;
+  public bubbleY: number = 0;
+
+  public isAligned: boolean = false;
+  public logHistory: any[] = [];
+  private trackingInterval: any;
+
+  ngOnInit() {
+    this.startGPS();
+    this.startSensors();
+    this.loadLogs();
+  }
+
+  // Calculate Sun Position via Solar Geometry
+  calculateSunPosition(lat: number, lon: number) {
+    const now = new Date();
+    
+    // 1. Day of the year (1-365)
+    const start = new Date(now.getFullYear(), 0, 0);
+    const diff = now.getTime() - start.getTime();
+    const oneDay = 1000 * 60 * 60 * 24;
+    const dayOfYear = Math.floor(diff / oneDay);
+
+    // 2. Solar Declination (Angle between sun rays and earth equator)
+    const declination = 23.45 * Math.sin((2 * Math.PI / 365) * (dayOfYear - 80));
+
+    // 3. True Solar Time / Hour Angle
+    const hours = now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600;
+    // Standard LSTM approximation (assuming approximate 15 degrees per timezone)
+    const localTimeMeridian = Math.round(lon / 15) * 15;
+    const timeCorrection = 4 * (lon - localTimeMeridian); 
+    const solarTime = hours + (timeCorrection / 60);
+    const hourAngle = 15 * (solarTime - 12);
+
+    // Convert degrees to radians for JS Math processing
+    const latRad = lat * (Math.PI / 180);
+    const decRad = declination * (Math.PI / 180);
+    const hrRad = hourAngle * (Math.PI / 180);
+
+    // 4. Calculate Sun Elevation (Altitude above horizon)
+    const sinElevation = Math.sin(latRad) * Math.sin(decRad) + Math.cos(latRad) * Math.cos(decRad) * Math.cos(hrRad);
+    this.sunElevation = Math.asin(sinElevation) * (180 / Math.PI);
+
+    // 5. Calculate Sun Azimuth (Compass direction of sun)
+    const cosAzimuth = (Math.sin(decRad) - Math.sin(latRad) * sinElevation) / (Math.cos(latRad) * Math.cos(Math.asin(sinElevation)));
+    let azAngle = Math.acos(cosAzimuth) * (180 / Math.PI);
+    
+    // Adjust compass heading based on morning vs afternoon
+    this.sunAzimuth = (hourAngle > 0) ? 360 - azAngle : azAngle;
+
+    // 6. Convert Sun Path to Target Phone Tilts
+    // When phone lays flat on panel:
+    // To face sun perpendicular, phone needs to tilt back by (90 - SunElevation)
+    const idealTiltAngle = 90 - this.sunElevation;
+
+    // Map that tilt angle against the compass difference between sun direction and phone direction
+    const headingDifference = (this.heading - this.sunAzimuth) * (Math.PI / 180);
+    
+    this.targetPitch = idealTiltAngle * Math.cos(headingDifference);
+    this.targetRoll = idealTiltAngle * Math.sin(headingDifference);
+
+    // Round calculations for clean interface displays
+    this.sunElevation = Math.round(this.sunElevation);
+    this.sunAzimuth = Math.round(this.sunAzimuth);
+
+    this.processBubbleLevel();
+  }
+
+  async startGPS() {
+    try {
+      const position = await Geolocation.getCurrentPosition();
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+
+      // Recalculate sun position every 4 seconds to match the moving sun path
+      this.calculateSunPosition(lat, lon);
+      this.trackingInterval = setInterval(() => {
+        this.calculateSunPosition(lat, lon);
+      }, 4000);
+
+    } catch (e) {
+      console.error('GPS tracking failed', e);
+    }
+  }
+
+  async startSensors() {
+    try {
+      await Motion.addListener('orientation', (event) => {
+        this.pitch = event.beta ? Math.round(event.beta) : 0;
+        this.roll = event.gamma ? Math.round(event.gamma) : 0;
+      });
+
+      window.addEventListener('deviceorientationabsolute', (event: any) => {
+        if (event.alpha !== null) {
+          this.heading = Math.round(360 - event.alpha);
+        }
+      }, true);
+    } catch (e) {
+      console.error('Sensors blocked', e);
+    }
+  }
+
+  processBubbleLevel() {
+    // Determine how far the user's real tilt is from the sun target angle
+    this.bubbleY = (this.pitch - this.targetPitch);
+    this.bubbleX = (this.roll - this.targetRoll);
+
+    // App is perfectly perpendicular to the sun if difference is less than 3.5 degrees
+    this.isAligned = Math.abs(this.bubbleY) < 3.5 && Math.abs(this.bubbleX) < 3.5;
+  }
+
+  saveLog() {
+    const targetedDate = localStorage.getItem('sundial_active_target_date');
+    const displayDate = targetedDate ? `${targetedDate} (Tracked)` : new Date().toLocaleString();
+
+    const item = { 
+      date: displayDate, 
+      pitch: this.pitch, 
+      roll: this.roll,
+      azimuth: this.sunAzimuth,
+      elevation: this.sunElevation
+    };
+    
+    this.logHistory.push(item);
+    if (this.logHistory.length > 30) this.logHistory.shift();
+    localStorage.setItem('sundial_logs', JSON.stringify(this.logHistory));
+    localStorage.removeItem('sundial_active_target_date');
+    
+    alert(`Perpendicular coordinates logged successfully!`);
+  }
+
+  loadLogs() {
+    const data = localStorage.getItem('sundial_logs');
+    if (data) this.logHistory = JSON.parse(data);
+  }
+
+  ngOnDestroy() {
+    if (this.trackingInterval) clearInterval(this.trackingInterval);
+  }
+}
+
+
+
+=== FILE: \src\app\app-routing.module.ts ===
+
+import { NgModule } from '@angular/core';
+import { PreloadAllModules, RouterModule, Routes } from '@angular/router';
+
+const routes: Routes = [
+  {
+    path: 'home',
+    loadChildren: () => import('./home/home.module').then( m => m.HomePageModule)
+  },
+  {
+    path: '',
+    redirectTo: 'home',
+    pathMatch: 'full'
+  },
+  {
+    path: 'track',
+    loadChildren: () => import('./track/track.module').then( m => m.TrackPageModule)
+  },
+  {
+    path: 'settings',
+    loadChildren: () => import('./settings/settings.module').then( m => m.SettingsPageModule)
+  },
+  {
+    path: 'storage',
+    loadChildren: () => import('./storage/storage.module').then( m => m.StoragePageModule)
+  },
+  {
+    path: 'history',
+    loadChildren: () => import('./history/history.module').then( m => m.HistoryPageModule)
+  },
+   {
+    path: 'privacy',
+    loadChildren: () => import('./privacy/privacy.module').then( m => m.PrivacyPageModule)
+  },
+];
+
+@NgModule({
+  imports: [
+    RouterModule.forRoot(routes, { preloadingStrategy: PreloadAllModules })
+  ],
+  exports: [RouterModule]
+})
+export class AppRoutingModule { }
+
+
+
+=== FILE: \src\app\app.component.html ===
+
+<ion-app>
+  <ion-router-outlet></ion-router-outlet>
+</ion-app>
+
+
+
+=== FILE: \src\app\app.component.scss ===
+
+
+
+=== FILE: \src\app\app.component.spec.ts ===
+
+import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
+
+import { AppComponent } from './app.component';
+
+describe('AppComponent', () => {
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      declarations: [AppComponent],
+      schemas: [CUSTOM_ELEMENTS_SCHEMA],
+    }).compileComponents();
+  });
+
+  it('should create the app', () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    const app = fixture.componentInstance;
+    expect(app).toBeTruthy();
+  });
+
+});
+
+
+
+=== FILE: \src\app\app.component.ts ===
+
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-root',
+  templateUrl: 'app.component.html',
+  styleUrls: ['app.component.scss'],
+  standalone: false,
+})
+export class AppComponent {
+  constructor() {}
+}
+
+
+
+=== FILE: \src\app\app.module.ts ===
+
+import { NgModule } from '@angular/core';
+import { BrowserModule } from '@angular/platform-browser';
+import { RouteReuseStrategy } from '@angular/router';
+
+import { IonicModule, IonicRouteStrategy } from '@ionic/angular';
+
+import { AppComponent } from './app.component';
+import { AppRoutingModule } from './app-routing.module';
+
+@NgModule({
+  declarations: [AppComponent],
+  imports: [BrowserModule, IonicModule.forRoot(), AppRoutingModule],
+  providers: [{ provide: RouteReuseStrategy, useClass: IonicRouteStrategy }],
+  bootstrap: [AppComponent],
+})
+export class AppModule {}
+
+
+
+=== FILE: \src\global.scss ===
+
+/*
+ * App Global CSS
+ * ----------------------------------------------------------------------------
+ * Put style rules here that you want to apply globally. These styles are for
+ * the entire app and not just one component. Additionally, this file can be
+ * used as an entry point to import other CSS/Sass files to be included in the
+ * output CSS.
+ * For more information on global stylesheets, visit the documentation:
+ * https://ionicframework.com/docs/layout/global-stylesheets
+ */
+
+/* Core CSS required for Ionic components to work properly */
+@import "@ionic/angular/css/core.css";
+
+/* Basic CSS for apps built with Ionic */
+@import "@ionic/angular/css/normalize.css";
+@import "@ionic/angular/css/structure.css";
+@import "@ionic/angular/css/typography.css";
+@import "@ionic/angular/css/display.css";
+
+/* Optional CSS utils that can be commented out */
+@import "@ionic/angular/css/padding.css";
+@import "@ionic/angular/css/float-elements.css";
+@import "@ionic/angular/css/text-alignment.css";
+@import "@ionic/angular/css/text-transformation.css";
+@import "@ionic/angular/css/flex-utils.css";
+
+/**
+ * Ionic Dark Mode
+ * -----------------------------------------------------
+ * For more info, please see:
+ * https://ionicframework.com/docs/theming/dark-mode
+ */
+
+/* @import "@ionic/angular/css/palettes/dark.always.css"; */
+/* @import "@ionic/angular/css/palettes/dark.class.css"; */
+@import "@ionic/angular/css/palettes/dark.system.css";
+/* Global Background Color Override */
+:root {
+  --ion-background-color: #00b0f0 !important;
+  --ion-content-background: #00b0f0 !important;
+}
+
+/* Ensure Ionic content shells render transparently to show the background */
+ion-content {
+  --background: #00b0f0 !important;
+}
